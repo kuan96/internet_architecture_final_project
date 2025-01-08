@@ -24,11 +24,11 @@ void broadcast_message(char *message, int sender_socket);
 void *handle_client(void *arg);
 void server_init();
 void *handle_input(void *arg);
+void *handle_accept(void *arg);
+void catch_ctrl_c(int sig);
+void output(FILE *file, char *message);
 
 // client
 void *receive_handler(void *arg);
-void catch_ctrl_c(int sig);
-
-void output(FILE *file, char *message);
 
 #endif

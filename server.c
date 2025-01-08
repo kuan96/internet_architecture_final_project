@@ -5,6 +5,7 @@ typedef struct
     int socket;
     char name[32];
     struct sockaddr_in address;
+    pthread_t tid;
 } client_t;
 
 client_t *clients[MAX_CLIENTS]; // 紀錄 client 的 address 和 socket
@@ -17,15 +18,16 @@ volatile sig_atomic_t server_running = 1;
 FILE *system_record_file;
 FILE *message_record_file;
 
+int server_socket;
+struct sockaddr_in server_addr;
+
 int main()
 {
+    pthread_t tid_for_handleAccept;
+
     server_init();
 
-    // signal(SIGINT, catch_ctrl_c);
-
-    int server_socket;
-    struct sockaddr_in server_addr;
-    pthread_t tid_for_handleClient, tid_for_handleAccept;
+    signal(SIGINT, catch_ctrl_c);
 
     // create socket
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -56,60 +58,23 @@ int main()
 
     output(system_record_file, "聊天室伺服器啟動\n");
 
+    pthread_create(&tid_for_handleAccept, NULL, handle_accept, NULL);
+
     while (server_running)
     {
-        // create client address
-        struct sockaddr_in client_addr;
-        socklen_t client_addr_size = sizeof(client_addr);
-
-        // get client socket
-        int client_socket = 0;
-        if (server_running)
-        {
-            client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_size);
-        }
-
-        if (client_socket < 0)
-        {
-            output(system_record_file, "接收連線失敗\n");
-            continue;
-        }
-
-        send(client_socket, message_records, sizeof(message_records), 0);
-
-        if (client_count + 1 == MAX_CLIENTS)
-        {
-            output(system_record_file, "達到最大連線數\n");
-            close(client_socket);
-            continue;
-        }
-
-        // send messages record
-
-        // create client
-        client_t *client = (client_t *)malloc(sizeof(client_t));
-        client->address = client_addr;
-        client->socket = client_socket;
-
-        // put into client list
-        pthread_mutex_lock(&clients_mutex);
-        for (int i = 0; i < MAX_CLIENTS; ++i)
-        {
-            if (!clients[i])
-            {
-                clients[i] = client;
-                break;
-            }
-        }
-        client_count++;
-        pthread_mutex_unlock(&clients_mutex);
-
-        // create thread to handle client
-        pthread_create(&tid_for_handleClient, NULL, handle_client, (void *)client);
-        pthread_detach(tid_for_handleClient);
     }
 
-    output(system_record_file, "伺服器關閉\n");
+    pthread_cancel(tid_for_handleAccept);
+
+    for (int i = 0; i < MAX_CLIENTS; ++i)
+    {
+        if (clients[i])
+        {
+            close(clients[i]->socket);
+            pthread_cancel(clients[i]->tid);
+        }
+    }
+
     fclose(system_record_file);
     fclose(message_record_file);
 
@@ -169,51 +134,57 @@ void broadcast_message(char *message, int sender_socket)
 
 void *handle_accept(void *arg)
 {
-    // create client address
-    struct sockaddr_in client_addr;
-    socklen_t client_addr_size = sizeof(client_addr);
-
-    // get client socket
-    int client_socket = 0;
-    if (server_running)
+    while (1)
     {
-        // client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_size);
-    }
+        // create client address
+        struct sockaddr_in client_addr;
+        socklen_t client_addr_size = sizeof(client_addr);
 
-    if (client_socket < 0)
-    {
-        output(system_record_file, "接收連線失敗\n");
-        return;
-    }
-
-    send(client_socket, message_records, sizeof(message_records), 0);
-
-    if (client_count + 1 == MAX_CLIENTS)
-    {
-        output(system_record_file, "達到最大連線數\n");
-        close(client_socket);
-        return;
-    }
-
-    // send messages record
-
-    // create client
-    client_t *client = (client_t *)malloc(sizeof(client_t));
-    client->address = client_addr;
-    client->socket = client_socket;
-
-    // put into client list
-    pthread_mutex_lock(&clients_mutex);
-    for (int i = 0; i < MAX_CLIENTS; ++i)
-    {
-        if (!clients[i])
+        // get client socket
+        int client_socket = 0;
+        if (server_running)
         {
-            clients[i] = client;
-            break;
+            client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_size);
         }
+
+        if (client_socket < 0)
+        {
+            output(system_record_file, "接收連線失敗\n");
+            continue;
+        }
+
+        if (client_count + 1 == MAX_CLIENTS)
+        {
+            output(system_record_file, "達到最大連線數\n");
+            close(client_socket);
+            continue;
+        }
+
+        // send messages record
+        send(client_socket, message_records, sizeof(message_records), 0);
+
+        // create client
+        client_t *client = (client_t *)malloc(sizeof(client_t));
+        client->address = client_addr;
+        client->socket = client_socket;
+
+        // put into client list
+        pthread_mutex_lock(&clients_mutex);
+        for (int i = 0; i < MAX_CLIENTS; ++i)
+        {
+            if (!clients[i])
+            {
+                clients[i] = client;
+                break;
+            }
+        }
+        client_count++;
+        pthread_mutex_unlock(&clients_mutex);
+
+        // create thread to handle client
+        pthread_create(&(client->tid), NULL, handle_client, (void *)client);
+        pthread_detach(client->tid);
     }
-    client_count++;
-    pthread_mutex_unlock(&clients_mutex);
 }
 
 void catch_ctrl_c(int sig)
@@ -266,7 +237,7 @@ void *handle_client(void *arg)
         broadcast_message(message, client->socket);
         append_message(message);
 
-        output(message_record_file, buffer);
+        output(message_record_file, message);
     }
 
 cleanup:
