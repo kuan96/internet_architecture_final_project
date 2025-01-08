@@ -1,13 +1,6 @@
 Andy 加入了聊天室
-Andy: aaa
-Andy: aaa
+Andy: Hi I'm Andy
 Bob 加入了聊天室
-Bob: bbb
-Cindy 加入了聊天室
-Cindy: ccc
-Andy: 
-Andy 離開了聊天室
+Bob: Hi I'm Bob
 Bob: 
 Bob 離開了聊天室
-Cindy: 
-Cindy 離開了聊天室

@@ -44,6 +44,7 @@ int main(int argc, char **argv)
     printf("========================\n\n");
 
     signal(SIGINT, catch_ctrl_c);
+    signal(SIGPIPE, handle_sigpipe);
 
     if (pthread_create(&tid, NULL, receive_handler, NULL) != 0)
     {
@@ -61,7 +62,7 @@ int main(int argc, char **argv)
 
         fgets(buffer, BUFFER_SIZE, stdin);
 
-        if (send(sockfd, buffer, sizeof(buffer), 0) == -1)
+        if (send(sockfd, buffer, sizeof(buffer), 0) <= 0)
         {
             printf("伺服器已關閉\n");
             break;
@@ -71,6 +72,12 @@ int main(int argc, char **argv)
     pthread_detach(tid);
     close(sockfd);
     return 0;
+}
+
+void handle_sigpipe(int sig)
+{
+    printf("伺服器連接已中斷 (SIGPIPE)\n");
+    exit_flag = 1;
 }
 
 void catch_ctrl_c(int sig)

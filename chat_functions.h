@@ -30,5 +30,6 @@ void output(FILE *file, char *message);
 
 // client
 void *receive_handler(void *arg);
+void handle_sigpipe(int sig);
 
 #endif
