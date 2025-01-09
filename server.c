@@ -177,9 +177,7 @@ void *handle_accept(void *arg)
                 break;
             }
         }
-        pthread_mutex_lock(&clients_mutex);
         client_count++;
-        pthread_mutex_unlock(&clients_mutex);
 
         pthread_mutex_unlock(&clients_mutex);
 
