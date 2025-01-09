@@ -72,6 +72,7 @@ int main()
         {
             close(clients[i]->socket);
             pthread_cancel(clients[i]->tid);
+            free(clients[i]);
         }
     }
 
@@ -86,8 +87,11 @@ int main()
 void output(FILE *file, char *message)
 {
     printf("%s", message);
+
+    pthread_mutex_lock(&clients_mutex);
     fprintf(file, "%s", message);
     fflush(file);
+    pthread_mutex_unlock(&clients_mutex);
 }
 
 void append_message(char *message)
@@ -141,12 +145,7 @@ void *handle_accept(void *arg)
         socklen_t client_addr_size = sizeof(client_addr);
 
         // get client socket
-        int client_socket = 0;
-        if (server_running)
-        {
-            client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_size);
-        }
-
+        int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_size);
         if (client_socket < 0)
         {
             output(system_record_file, "接收連線失敗\n");
@@ -178,7 +177,10 @@ void *handle_accept(void *arg)
                 break;
             }
         }
+        pthread_mutex_lock(&clients_mutex);
         client_count++;
+        pthread_mutex_unlock(&clients_mutex);
+
         pthread_mutex_unlock(&clients_mutex);
 
         // create thread to handle client
@@ -248,7 +250,10 @@ cleanup:
         if (clients[i] && clients[i]->socket == client->socket)
         {
             clients[i] = NULL;
+
+            pthread_mutex_lock(&clients_mutex);
             client_count--;
+            pthread_mutex_unlock(&clients_mutex);
         }
     }
 
