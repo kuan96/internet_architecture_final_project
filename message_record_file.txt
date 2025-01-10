@@ -1,8 +1,6 @@
 Andy 加入了聊天室
-Andy: sdsfjs
+Andy: Hi I'm Andy
 Bob 加入了聊天室
-Bob: dfdsfds
+Bob: Hi I'm Bob
 Bob: 
 Bob 離開了聊天室
-Andy: 
-Andy 離開了聊天室
