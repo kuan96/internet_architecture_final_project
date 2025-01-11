@@ -248,10 +248,7 @@ cleanup:
         if (clients[i] && clients[i]->socket == client->socket)
         {
             clients[i] = NULL;
-
-            pthread_mutex_lock(&clients_mutex);
             client_count--;
-            pthread_mutex_unlock(&clients_mutex);
         }
     }
 
